@@ -1,0 +1,25 @@
+{
+    "quellen": [
+        "D:\\DCIM\\Camera",
+        "E:\\Phone\\Pictures",
+        "F:\\Backup\\Photos"
+    ],
+    "ziele": {
+        "$env:USERPROFILE\\Pictures\\Handy": [
+            "*.jpg",
+            "*.jpeg",
+            "*.png",
+            "*.jpng"
+        ],
+        "$env:USERPROFILE\\Videos\\Handy": [
+            "*.mp4",
+            "*.mov",
+            "*.avi"
+        ],
+        "$env:USERPROFILE\\Documents\\Handy": [
+            "*.pdf",
+            "*.doc",
+            "*.docx"
+        ]
+    }
+}
