@@ -1,2 +1,4 @@
 C:\Users\wolfr\Desktop\ordner2
 C:\Users\wolfr\Desktop\ordner1
+kannst du machen das anstat der paths .txt eine config.json in der dann alle paths stehen und alle dateitypen und wohin also z.b. png etc soll weiterhin zu relativ von benutzer /Picture/Hnady und /Video/Handy außerdem soll die config.json dann unter apparat/roming/lennard/handy/
+ja aber in die config müssen auch noch die paths woher die sachen kommen also die handy paths rein unter quellen und dann als liste außerdem würde ich das umdrehen und /Pictures/handy: liste aus datei typen  und es soll ein ps1 script sein 
