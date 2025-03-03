@@ -20,19 +20,21 @@ if (!($config.PSObject.Properties.Name -contains "quellen") -or
     exit
 }
 
-# Process each destination with its file types
+$errorMessages = @()
 $alleDateien = @()
 $zielInfos = @{}
 
 foreach ($ziel in $config.ziele.PSObject.Properties) {
     $zielPfad = $ziel.Name -replace '\$env:USERPROFILE', $env:USERPROFILE
     
-    # Create destination directory if it doesn't exist
     if (!(Test-Path $zielPfad)) {
-        New-Item -ItemType Directory -Path $zielPfad -Force | Out-Null
+        try {
+            New-Item -ItemType Directory -Path $zielPfad -Force | Out-Null
+        } catch {
+            $errorMessages += "Fehler beim Erstellen von Verzeichnis $zielPfad`: $_"
+        }
     }
     
-    # Get list of file extensions for this destination
     $dateitypen = $ziel.Value
     
     # Store information for later use
@@ -44,24 +46,28 @@ foreach ($quelle in $config.quellen) {
     if (Test-Path $quelle) {
         foreach ($zielPfad in $zielInfos.Keys) {
             foreach ($typ in $zielInfos[$zielPfad]) {
-                $dateien = Get-ChildItem -Path $quelle -Filter $typ -File -ErrorAction SilentlyContinue
-                foreach ($datei in $dateien) {
-                    $alleDateien += [PSCustomObject]@{
-                        FullName = $datei.FullName
-                        Name = $datei.Name
-                        ZielPfad = $zielPfad
+                try {
+                    $dateien = Get-ChildItem -Path $quelle -Filter $typ -File -ErrorAction Stop
+                    foreach ($datei in $dateien) {
+                        $alleDateien += [PSCustomObject]@{
+                            FullName = $datei.FullName
+                            Name = $datei.Name
+                            ZielPfad = $zielPfad
+                        }
                     }
+                } catch {
+                    $errorMessages += "Fehler beim Durchsuchen von $quelle nach $typ`: $_"
                 }
             }
         }
     } else {
-        Write-Host "Quellordner nicht gefunden: $quelle"
+        $errorMessages += "Quellordner nicht gefunden: $quelle"
     }
 }
 
 $total = $alleDateien.Count
 if ($total -eq 0) {
-    Write-Host "Keine Dateien gefunden. Übertragung abgebrochen."
+    Write-Host "Keine Dateien gefunden. Uebertragung abgebrochen."
     Start-Sleep -Seconds 3
     exit
 }
@@ -71,14 +77,29 @@ function Clear-ScreenAndPrepare {
     $emptyLines = $screenHeight - 3
     $width = $Host.UI.RawUI.WindowSize.Width
     if ($width -lt 40) { $width = 40 }
-    $back = "_" * ($width - 40)
-    Write-Host -NoNewline "___|" -BackgroundColor Black -ForegroundColor White
+    $back = "_" * ($width - 37)
+    Write-Host -NoNewline "____|" -BackgroundColor Black -ForegroundColor White
     Write-Host -NoNewline " Kopiert Dateien in Zielordner " -BackgroundColor White -ForegroundColor Black
     Write-Host -NoNewline "|$back" -BackgroundColor Black -ForegroundColor White
-    [Console]::SetCursorPosition(0, 0)
-    for ($i = 0; $i -lt $emptyLines; $i++) {
-        Write-Host ""
+    Write-Host ""
+}
+
+function Show-ErrorMessages {
+    param(
+        [array]$messages
+    )
+    
+    Write-Host "Fehler und Warnungen:" -ForegroundColor DarkGray
+    
+    if ($messages.Count -eq 0) {
+        Write-Host "Keine Fehler aufgetreten." -ForegroundColor DarkGray
+    } else {
+        foreach ($msg in $messages) {
+            Write-Host " - $msg" -ForegroundColor DarkGray
+        }
     }
+    
+    Write-Host "`n`n"
 }
 
 function Show-ProgressBar {
@@ -95,18 +116,31 @@ function Show-ProgressBar {
     Write-Host "Datei: $counter/$total $progress% Name: $($datei.Name.PadRight(15))" -ForegroundColor DarkGray -BackgroundColor Black
 }
 
-$counter = 0
 Clear-ScreenAndPrepare
+Show-ErrorMessages -messages $errorMessages
 
+$screenHeight = [System.Console]::WindowHeight
+[Console]::SetCursorPosition(0, $screenHeight - 3)
+
+$counter = 0
 foreach ($datei in $alleDateien) {
     $counter++
     $prozent = [math]::Round(($counter / $total) * 100)
+    [Console]::SetCursorPosition(0, $screenHeight - 3)
+    
     Show-ProgressBar -progress $prozent
-    [Console]::SetCursorPosition(0, [Console]::CursorTop - 2)
-    Copy-Item -Path $datei.FullName -Destination $datei.ZielPfad -Force
-    Start-Sleep -Milliseconds 500
+    
+    try {
+        Copy-Item -Path $datei.FullName -Destination $datei.ZielPfad -Force -ErrorAction Stop
+    } catch {
+        $errorMessages += "Fehler beim Kopieren von $($datei.Name): $_"
+        [Console]::SetCursorPosition(0, 1)
+        [Console]::Clear()
+        Clear-ScreenAndPrepare
+        Show-ErrorMessages -messages $errorMessages
+    }
 }
 
-Write-Host "`n`nÜbertragung abgeschlossen: $counter Dateien kopiert."
+[Console]::SetCursorPosition(0, $screenHeight - 1)
 Start-Sleep -Seconds 3
 exit
